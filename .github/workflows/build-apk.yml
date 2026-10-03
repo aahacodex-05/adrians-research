@@ -1,0 +1,48 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack project (if uploaded as an archive)
+        run: |
+          if [ -f project.tar.gz ]; then tar -xzf project.tar.gz; fi
+          ls -la
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk AdriansResearch.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AdriansResearch-apk
+          path: AdriansResearch.apk
+
+      - name: Publish to the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest AdriansResearch.apk \
+            --title "Adrians Research (latest build)" \
+            --notes "Build ${{ github.run_number }}. On your Android phone, tap AdriansResearch.apk to download, then open it to install."
